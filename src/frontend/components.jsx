@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   Box,
   Stack,
@@ -182,8 +182,12 @@ export const DecisionForm = ({ initial = {}, source = {}, ownerAccountId, onSave
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const { errors } = formState;
+  // A second click while the first save is still running must not log the decision twice.
+  const inFlight = useRef(false);
 
   const save = async (values) => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setSaving(true);
     setError('');
     try {
@@ -196,6 +200,7 @@ export const DecisionForm = ({ initial = {}, source = {}, ownerAccountId, onSave
       onSaved(saved);
     } catch (e) {
       setError(e.message || 'Could not save the decision.');
+      inFlight.current = false;
       setSaving(false);
     }
   };

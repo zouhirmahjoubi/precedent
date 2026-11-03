@@ -22,7 +22,8 @@ function clean(obj) {
 
 export function parseKeywords(value) {
   const list = Array.isArray(value) ? value : String(value || '').split(/[,;\n]/);
-  return [...new Set(list.map((k) => String(k).trim().toLowerCase()).filter(Boolean))].slice(0, 12);
+  const words = list.map((k) => String(k).replace(/[[\]"'`]/g, '').trim().toLowerCase()).filter(Boolean);
+  return [...new Set(words)].slice(0, 12);
 }
 
 async function nextRef() {
@@ -98,6 +99,7 @@ export async function createDecision(input, accountId) {
     sourceKey: input.sourceKey,
     sourceTitle: input.sourceTitle,
     sourceUrl: input.sourceUrl,
+    sourceItemId: input.sourceItemId,
     createdAt: at,
     updatedAt: at,
     caughtCount: 0,
@@ -188,6 +190,23 @@ export async function getSuggestion(issueKey) {
 
 export async function saveSuggestion(issueKey, suggestion) {
   await kvs.set(suggestionKey(issueKey), suggestion);
+}
+
+// Per Confluence page: the decision items the team chose not to log.
+const pageKey = (pageId) => `page:${pageId}`;
+
+export async function getPageState(pageId) {
+  return (await kvs.get(pageKey(pageId))) || { skipped: [] };
+}
+
+export async function setItemSkipped(pageId, localId, skip) {
+  const state = await getPageState(pageId);
+  const skipped = new Set(state.skipped || []);
+  if (skip) skipped.add(localId);
+  else skipped.delete(localId);
+  const next = { ...state, skipped: [...skipped] };
+  await kvs.set(pageKey(pageId), next);
+  return next;
 }
 
 // Work items Precedent opened to review a decision: { ref, for, outcome }.

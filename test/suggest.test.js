@@ -1,6 +1,91 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hasDecisionCue, fallbackSuggestion, buildExtractPrompt, parseExtract } from '../src/lib/suggest.js';
+import {
+  hasDecisionCue,
+  fallbackSuggestion,
+  buildExtractPrompt,
+  parseExtract,
+  draftFromItem,
+  unloggedItems,
+  buildPageDraftPrompt,
+  bylineTitle,
+} from '../src/lib/suggest.js';
+import { decisionItems } from '../src/lib/adf.js';
+
+// A Confluence meeting notes page with two decisions, one still undecided.
+const page = {
+  type: 'doc',
+  version: 1,
+  content: [
+    { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Decisions' }] },
+    {
+      type: 'decisionList',
+      attrs: { localId: 'list-1' },
+      content: [
+        {
+          type: 'decisionItem',
+          attrs: { localId: 'd-1', state: 'DECIDED' },
+          content: [{ type: 'text', text: 'Gift wrap is free on orders over $60 because the wrap costs us $2.10' }],
+        },
+        {
+          type: 'decisionItem',
+          attrs: { localId: 'd-2', state: 'DECIDED' },
+          content: [
+            { type: 'text', text: 'Holiday returns run to ' },
+            { type: 'text', text: 'January 31', marks: [{ type: 'strong' }] },
+          ],
+        },
+        { type: 'decisionItem', attrs: { localId: 'd-3', state: 'UNDECIDED' }, content: [{ type: 'text', text: 'Maybe' }] },
+        { type: 'decisionItem', attrs: { localId: 'd-4', state: 'DECIDED' }, content: [] },
+      ],
+    },
+  ],
+};
+
+test('finds decided decision items on a page, in order', () => {
+  assert.deepEqual(decisionItems(page), [
+    { localId: 'd-1', text: 'Gift wrap is free on orders over $60 because the wrap costs us $2.10' },
+    { localId: 'd-2', text: 'Holiday returns run to January 31' },
+  ]);
+  assert.deepEqual(decisionItems(null), []);
+});
+
+test('a page decision without AI keeps its words and splits off the reason', () => {
+  assert.deepEqual(draftFromItem({ text: 'gift wrap is free on orders over $60 because the wrap costs us $2.10' }), {
+    title: 'Gift wrap is free on orders over $60',
+    rationale: 'The wrap costs us $2.10.',
+    keywords: [],
+  });
+  assert.equal(draftFromItem({ text: 'Holiday returns run to January 31.' }).title, 'Holiday returns run to January 31');
+});
+
+test('skips page decisions already logged, by item ID or by wording', () => {
+  const items = decisionItems(page);
+  assert.equal(unloggedItems(items, []).length, 2);
+  assert.deepEqual(
+    unloggedItems(items, [{ sourceItemId: 'd-1', title: 'Free gift wrap over $60' }]).map((i) => i.localId),
+    ['d-2']
+  );
+  assert.deepEqual(
+    unloggedItems(items, [{ title: 'Holiday returns run to January 31' }]).map((i) => i.localId),
+    ['d-1']
+  );
+});
+
+test('the byline title counts logged and waiting decisions', () => {
+  assert.equal(bylineTitle(0, 0).title, 'Decisions');
+  assert.equal(bylineTitle(0, 2).title, '2 decisions to log');
+  assert.equal(bylineTitle(1, 0).title, '1 decision logged');
+  assert.equal(bylineTitle(2, 1).title, '2 logged, 1 to log');
+  assert.equal(bylineTitle(2, 1).tooltip, '2 decisions logged from this page, 1 still to log.');
+});
+
+test('the page prompt fences the page and the decision', () => {
+  const prompt = buildPageDraftPrompt({ title: 'November pricing sync', text: 'Notes...' }, { text: 'Holiday returns run to January 31' });
+  const user = prompt.messages[1].content;
+  assert.match(user, /^Page: November pricing sync\n<page>\nNotes\.\.\.\n<\/page>\n<decision>\nHoliday returns run to January 31\n<\/decision>$/);
+  assert.equal(prompt.tool_choice.function.name, 'record_decision');
+});
 
 test('spots decision phrases and ignores ordinary comments', () => {
   for (const text of [
@@ -72,6 +157,10 @@ test('reads the decision the model found', () => {
   assert.deepEqual(parseExtract(reply(JSON.stringify({ found: true, title: 'Use matte finish', keywords: 'matte, finish' }))).keywords, [
     'matte',
     'finish',
+  ]);
+  assert.deepEqual(parseExtract(reply({ found: true, title: 'x', keywords: '["holiday returns", "return window"]' })).keywords, [
+    'holiday returns',
+    'return window',
   ]);
 });
 

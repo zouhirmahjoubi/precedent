@@ -11,12 +11,13 @@ Precedent is a Forge app for Jira and Confluence. It keeps a record of your team
 - **Links to where a decision was made:** the Jira work item key or Confluence page ID, title and link.
 - **Per work item flags:** which decisions were flagged on a work item and how people responded.
 - **Decision suggestions:** when a comment reads like a decision, the suggested rule, reason and keywords, the comment's ID, and whether someone logged or dismissed it. No account IDs are stored with a suggestion.
+- **Skipped page decisions:** per Confluence page, the IDs of decision items the team chose not to log.
 - **Review work items:** which Jira work items Precedent opened to review a decision, and the outcome (kept, replaced or expired). Who recorded the outcome is kept in the decision's history.
 - **Settings** chosen by a site admin.
 
 ## What Precedent reads but does not keep
 
-To do its job, Precedent reads the summary, description and comments of Jira work items, and the title of Confluence pages, using the permissions you grant when you install it. It compares that text with your decisions and then discards it, except for the decision suggestions listed above.
+To do its job, Precedent reads the summary, description and comments of Jira work items, and the title and content of Confluence pages, using the permissions you grant when you install it. It compares that text with your decisions and then discards it, except for the decision suggestions listed above.
 
 ## Where the data lives
 
@@ -26,7 +27,7 @@ All data is kept in Atlassian's Forge hosted storage for your site. Precedent ru
 
 The Precedent Rovo agent and its tools for MCP clients (such as Claude or Cursor) run on behalf of the signed-in user and can only see what that user can already see in Jira and Confluence. Rovo is provided by Atlassian under Atlassian's own terms.
 
-If a site admin turns on **Check matches with AI** in Precedent settings, Precedent sends the summary and description of a work item, together with the decisions it matched, to a Claude model hosted by Atlassian through Forge LLMs. This happens inside Atlassian's platform; the text is not sent to the developer or to any other service. Precedent stores only the verdict (conflicts, fits, unclear or unrelated) and a one-sentence reason on the work item's flags. With the same setting on, when a comment reads like a decision, Precedent sends the work item's summary, description and recent comments (with commenters' display names) to the same model to draft the suggested decision. The setting is off by default.
+If a site admin turns on **Check matches with AI** in Precedent settings, Precedent sends the summary and description of a work item, together with the decisions it matched, to a Claude model hosted by Atlassian through Forge LLMs. This happens inside Atlassian's platform; the text is not sent to the developer or to any other service. Precedent stores only the verdict (conflicts, fits, unclear or unrelated) and a one-sentence reason on the work item's flags. With the same setting on, when a comment reads like a decision, Precedent sends the work item's summary, description and recent comments (with commenters' display names) to the same model to draft the suggested decision. Likewise, when someone logs a decision written on a Confluence page, the page's text goes to the model to draft the rule, reason and keywords. The setting is off by default.
 
 ## Account closure and deletion
 

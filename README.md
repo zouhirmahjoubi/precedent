@@ -13,7 +13,7 @@ Precedent remembers what your team decided and why, and flags new Jira work that
 | Decision log | `jira:globalPage` | All decisions with search, status tabs, review dates, and how often each was flagged and followed. |
 | Review reminders | `scheduledTrigger` (daily) | On a decision's review date, opens a Jira work item assigned to the owner. The Precedent panel on it has Keep, Replace and Let it expire; the outcome is commented and the work item closed when the workflow allows. |
 | Settings | `jira:adminPage` | Comment options, the AI verdict switch, decision capture from comments, review reminders and their project, a button to check for due reviews now, and a button that adds sample decisions. |
-| Confluence capture | `confluence:contentAction`, `confluence:contentBylineItem` | Log a decision from a page; see the decisions logged from it. |
+| Confluence capture | `confluence:contentAction`, `confluence:contentBylineItem` | Log a decision from a page. Decisions written on the page with /decision are listed with Log it (prefilled, by the model when AI is on) and Skip. The byline under the page title counts them: "2 decisions to log", "1 decision logged". |
 | Precedent agent | `rovo:agent`, 7 `action`s, 2 `rovo:skill`s | Answers "what did we decide about X", checks plans, captures decisions from threads, runs reviews. |
 | MCP tools | `rovo:mcp` | The same 7 actions for Claude, Cursor and other MCP clients. |
 
@@ -61,3 +61,4 @@ claude mcp add --transport http precedent https://mcp.atlassian.com/forge/2ef747
 5. In Rovo chat, pick the Precedent agent and ask "What did we decide about free shipping?"
 6. To try a review: set a decision's review date to today in the Decisions page, set a review project in Precedent settings, and click **Check for due reviews**. Open the new work item and use Keep, Replace or Let it expire in the Precedent panel.
 7. To capture a decision: on any work item, comment "We agreed: gift wrap is free on orders over $60 because the wrap costs us $2.10." Precedent replies that this looks like a decision. Open the Precedent panel and click **Log it**.
+8. On a Confluence page, type /decision and write "Holiday orders can be returned until January 31". The byline under the title changes to "1 decision to log". Open the page menu (•••) > **Log a decision** and click **Log it**.

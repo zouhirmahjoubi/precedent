@@ -14,6 +14,7 @@ import {
   getReview,
   getSuggestion,
   saveSuggestion,
+  setItemSkipped,
   getSettings,
   saveSettings,
   addSamples,
@@ -23,7 +24,10 @@ import { getPage } from './lib/confluence';
 import { checkWorkItem } from './lib/check';
 import { nextReviewDate, isoDay } from './lib/review';
 import { runReviewReminders, recordReview } from './reviews';
-import { doc, paragraph, strong, text, mention } from './lib/adf';
+import { draftFromItem } from './lib/suggest';
+import { pageDecisions } from './lib/page';
+import { draftPageDecision } from './lib/judge';
+import { doc, paragraph, strong, text, mention, decisionItems } from './lib/adf';
 
 const resolver = new Resolver();
 const ADMIN_MODULE = 'precedent-settings';
@@ -194,9 +198,30 @@ resolver.define('getSourceContext', async ({ context }) => {
   return { sourceType: 'manual' };
 });
 
-resolver.define('listForPage', async ({ context }) => {
+// Decisions logged from this Confluence page, and the page's own decision
+// items (typed with /decision) that nobody has logged yet.
+resolver.define('getPageDecisions', ({ context }) => pageDecisions(context.extension?.content?.id));
+
+// Skip a decision item on the page, or bring it back.
+resolver.define('skipPageItem', ({ payload, context }) =>
+  setItemSkipped(String(context.extension.content.id), String(payload.localId), payload.skip !== false)
+);
+
+// The log form's starting values for one decision item. With AI on, the model
+// writes the rule, reason and keywords from the page; otherwise the item's own words.
+resolver.define('draftPageDecision', async ({ payload, context }) => {
   const pageId = context.extension?.content?.id;
-  return listBySource(pageId);
+  const [page, settings] = await Promise.all([getPage(pageId, { withBody: true }), getSettings()]);
+  const item = decisionItems(page.adf).find((i) => i.localId === payload.localId);
+  if (!item) throw new Error('That decision is no longer on the page.');
+  const plain = draftFromItem(item);
+  const drafted = settings.useAi ? await draftPageDecision(page, item) : null;
+  return {
+    title: drafted?.title || plain.title,
+    rationale: drafted?.rationale || plain.rationale,
+    keywords: drafted?.keywords?.length ? drafted.keywords : plain.keywords,
+    sourceItemId: item.localId,
+  };
 });
 
 resolver.define('getSettings', () => getSettings());

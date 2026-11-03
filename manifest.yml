@@ -72,6 +72,8 @@ modules:
       resolver:
         function: resolver
       render: native
+      dynamicProperties:
+        function: byline-props
 
   rovo:agent:
     - key: precedent-agent
@@ -301,6 +303,8 @@ modules:
       handler: index.guard
     - key: capture
       handler: index.capture
+    - key: byline-props
+      handler: index.bylineProps
     - key: find-decisions-fn
       handler: index.findDecisions
     - key: get-decision-fn
@@ -380,6 +384,8 @@ app:
           sourceTitle:
             type: string
           sourceUrl:
+            type: string
+          sourceItemId:
             type: string
           replacedBy:
             type: string

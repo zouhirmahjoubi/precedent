@@ -12,6 +12,20 @@ export function adfToText(node) {
   return BLOCKS.has(node.type) ? `${inner}\n` : inner;
 }
 
+// Confluence's built-in decision elements (typed with /decision), in page order.
+export function decisionItems(node, out = []) {
+  if (!node || typeof node !== 'object') return out;
+  if (node.type === 'decisionItem') {
+    const value = adfToText(node).trim();
+    if (value && (!node.attrs?.state || node.attrs.state === 'DECIDED')) {
+      out.push({ localId: node.attrs?.localId, text: value });
+    }
+    return out;
+  }
+  for (const child of node.content || []) decisionItems(child, out);
+  return out;
+}
+
 export const text = (value, marks) => (marks ? { type: 'text', text: value, marks } : { type: 'text', text: value });
 export const strong = (value) => text(value, [{ type: 'strong' }]);
 export const link = (value, href) => text(value, [{ type: 'link', attrs: { href } }]);
