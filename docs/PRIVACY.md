@@ -10,6 +10,7 @@ Precedent is a Forge app for Jira and Confluence. It keeps a record of your team
 - **Atlassian account IDs** of the people who own, log, follow or ask to reopen a decision. Precedent does not store names, email addresses or profile details. It looks up display names from Atlassian when it needs to show them.
 - **Links to where a decision was made:** the Jira work item key or Confluence page ID, title and link.
 - **Per work item flags:** which decisions were flagged on a work item and how people responded.
+- **Review work items:** which Jira work items Precedent opened to review a decision, and the outcome (kept, replaced or expired). Who recorded the outcome is kept in the decision's history.
 - **Settings** chosen by a site admin.
 
 ## What Precedent reads but does not keep

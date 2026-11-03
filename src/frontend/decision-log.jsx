@@ -30,7 +30,7 @@ import ForgeReconciler, {
   xcss,
 } from '@forge/react';
 import { invoke, view } from '@forge/bridge';
-import { DecisionCard, DecisionForm, StatusLozenge, formatDate } from './components';
+import { DecisionCard, DecisionForm, StatusLozenge, formatDate, recordLine } from './components';
 
 const pageStyle = xcss({ padding: 'space.400' });
 
@@ -76,9 +76,6 @@ const HEAD = {
   ],
 };
 
-const times = (n = 0, label) => `${label} ${n === 1 ? 'once' : `${n} times`}`;
-const count = (n = 0, noun) => `${n} ${noun}${n === 1 ? '' : 's'}`;
-
 const HISTORY_LABEL = {
   logged: 'Logged',
   edited: 'Edited',
@@ -87,6 +84,8 @@ const HISTORY_LABEL = {
   active: 'Made active again',
   replaced: 'Replaced',
   expired: 'Expired',
+  kept: 'Kept after review',
+  'review opened': 'Review opened in',
 };
 
 const DecisionDetail = ({ decision, decisions, accountId, onClose, onChanged }) => {
@@ -127,13 +126,7 @@ const DecisionDetail = ({ decision, decisions, accountId, onClose, onChanged }) 
         ) : (
           <Stack space="space.300">
             <DecisionCard decision={decision} />
-            <Text>
-              {[
-                times(decision.caughtCount, 'Flagged new work'),
-                times(decision.followedCount, 'Followed'),
-                count(decision.reopenCount, 'reopen request'),
-              ].join(' · ')}
-            </Text>
+            <Text>{recordLine(decision)}</Text>
             {decision.status === 'active' && replacements.length > 0 && (
               <Stack space="space.050">
                 <Label labelFor="replace">Replace with</Label>

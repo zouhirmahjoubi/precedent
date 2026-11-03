@@ -11,6 +11,7 @@ import {
   getFlags,
   saveFlags,
   saveVerdicts,
+  getReview,
   getSettings,
   saveSettings,
   addSamples,
@@ -18,6 +19,8 @@ import {
 import { getWorkItem, addComment, getSiteUrl } from './lib/jira';
 import { getPage } from './lib/confluence';
 import { checkWorkItem } from './lib/check';
+import { nextReviewDate, isoDay } from './lib/review';
+import { runReviewReminders, recordReview } from './reviews';
 import { doc, paragraph, strong, text, mention } from './lib/adf';
 
 const resolver = new Resolver();
@@ -66,8 +69,18 @@ resolver.define('setStatus', async ({ payload, context }) => {
 });
 
 // Work item view: decisions this work touches, and decisions logged from it.
+// A review work item shows the decision under review instead of matches.
 resolver.define('getWorkItemView', async ({ context }) => {
   const issueKey = context.extension.issue.key;
+  const review = await getReview(issueKey);
+  if (review) {
+    const [decision, fromHere] = await Promise.all([getDecision(review.ref), listBySource(issueKey)]);
+    return {
+      review: { ...review, decision, suggestedNext: decision && nextReviewDate(decision, isoDay(Date.now())) },
+      matches: [],
+      fromHere,
+    };
+  }
   const [work, settings, flags, fromHere] = await Promise.all([
     getWorkItem(issueKey),
     getSettings(),
@@ -130,6 +143,16 @@ resolver.define('respond', async ({ payload, context }) => {
   return flags[ref];
 });
 
+resolver.define('review', async ({ payload, context }) => {
+  const issueKey = context.extension.issue.key;
+  const review = await getReview(issueKey);
+  if (!review) throw new Error('This work item is not a decision review.');
+  const decision = await getDecision(review.ref);
+  if (!decision) throw new Error(`No decision ${review.ref}.`);
+  assertCanChange(decision, context);
+  return recordReview(issueKey, payload, context.accountId);
+});
+
 resolver.define('getSourceContext', async ({ context }) => {
   const ext = context.extension || {};
   if (ext.issue?.key) {
@@ -160,6 +183,11 @@ resolver.define('getSettings', () => getSettings());
 resolver.define('addSamples', async ({ context }) => {
   if (context.moduleKey !== ADMIN_MODULE) throw new Error('Samples can only be added from the admin page.');
   return (await addSamples(context.accountId)).map((d) => d.ref);
+});
+
+resolver.define('runReviews', ({ context }) => {
+  if (context.moduleKey !== ADMIN_MODULE) throw new Error('Reviews can only be run from the admin page.');
+  return runReviewReminders();
 });
 
 resolver.define('saveSettings', ({ payload, context }) => {

@@ -1,5 +1,5 @@
 import { getWorkItem, addComment } from './lib/jira';
-import { getFlags, saveFlags, getSettings, bumpCounter } from './lib/decisions';
+import { getFlags, saveFlags, getSettings, bumpCounter, getReview } from './lib/decisions';
 import { checkWorkItem } from './lib/check';
 import { guardStep } from './lib/flags';
 import { doc, paragraph, strong, text, mention, link, bulletList } from './lib/adf';
@@ -40,6 +40,9 @@ export async function onWorkItemChanged(event) {
     const items = event.changelog?.items || [];
     if (!items.some((i) => WATCHED_FIELDS.has(i.field) || WATCHED_FIELDS.has(i.fieldId))) return;
   }
+
+  // A review work item repeats its decision's words, so it would always match.
+  if (await getReview(issueKey)) return;
 
   const [work, settings, flags] = await Promise.all([getWorkItem(issueKey), getSettings(), getFlags(issueKey)]);
   const { matches, judged } = await checkWorkItem(work, flags, settings);

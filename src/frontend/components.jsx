@@ -40,6 +40,16 @@ export function formatDate(value) {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+const times = (n = 0, label) => `${label} ${n === 1 ? 'once' : `${n} times`}`;
+
+// How the decision has fared: flagged, followed, challenged.
+export const recordLine = (d) =>
+  [
+    times(d.caughtCount, 'Flagged new work'),
+    times(d.followedCount, 'Followed'),
+    `${d.reopenCount || 0} reopen request${d.reopenCount === 1 ? '' : 's'}`,
+  ].join(' · ');
+
 export const StatusLozenge = ({ status }) => {
   const s = STATUS[status] || STATUS.active;
   return <Lozenge appearance={s.appearance}>{s.label}</Lozenge>;

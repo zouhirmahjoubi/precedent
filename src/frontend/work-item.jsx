@@ -23,6 +23,7 @@ import ForgeReconciler, {
 } from '@forge/react';
 import { invoke, view } from '@forge/bridge';
 import { DecisionCard, DecisionForm } from './components';
+import { ReviewPanel } from './review';
 import { isConflict } from '../lib/matcher';
 
 const RESPONSES = {
@@ -121,12 +122,14 @@ const App = () => {
   if (error) return <SectionMessage appearance="error">{error}</SectionMessage>;
   if (!data) return <Spinner label="Checking decisions" />;
 
-  const { matches, fromHere } = data;
+  const { matches, fromHere, review } = data;
   const banner = matches.length ? summarize(matches) : null;
 
   return (
     <Stack space="space.300">
-      {banner ? (
+      {review ? (
+        <ReviewPanel review={review} accountId={accountId} onDone={load} />
+      ) : banner ? (
         <SectionMessage appearance={banner.appearance} title={banner.title}>
           <Text>{banner.text}</Text>
         </SectionMessage>

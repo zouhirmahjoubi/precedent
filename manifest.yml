@@ -17,6 +17,9 @@ modules:
     - key: precedent-privacy-report
       function: privacy-report
       interval: week
+    - key: precedent-review-reminders
+      function: review-reminders
+      interval: day
 
   jira:issueContext:
     - key: precedent-work-item
@@ -286,6 +289,8 @@ modules:
       handler: index.resolver
     - key: privacy-report
       handler: index.reportAccounts
+    - key: review-reminders
+      handler: index.sendReviewReminders
     - key: guard
       handler: index.guard
     - key: find-decisions-fn
@@ -382,6 +387,12 @@ app:
             type: integer
           history:
             type: any
+          reminderFor:
+            type: string
+          reviewIssueKey:
+            type: string
+          lastReviewedOn:
+            type: string
         indexes:
           - name: by-status
             partition:

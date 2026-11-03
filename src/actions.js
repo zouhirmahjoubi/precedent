@@ -33,6 +33,7 @@ async function brief(d) {
     projects: d.projectKeys?.length ? d.projectKeys : 'all',
     source: d.sourceUrl || d.sourceKey,
     replacedBy: d.replacedBy,
+    reviewWorkItem: d.reminderFor && d.reminderFor === d.reviewBy ? d.reviewIssueKey : undefined,
     timesCaught: d.caughtCount || 0,
     timesFollowed: d.followedCount || 0,
     reopenRequests: d.reopenCount || 0,

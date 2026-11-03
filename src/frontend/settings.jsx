@@ -7,6 +7,8 @@ import ForgeReconciler, {
   Heading,
   Toggle,
   Label,
+  Textfield,
+  HelperMessage,
   LoadingButton,
   SectionMessage,
   Spinner,
@@ -32,11 +34,21 @@ const Setting = ({ id, label, description, isChecked, onChange }) => (
   </Inline>
 );
 
+function describeRun({ off, opened, skipped }) {
+  if (off) return 'Review work items are turned off. Turn them on and save first.';
+  const parts = opened.map((o) => `Opened ${o.issueKey} for ${o.ref}.`);
+  for (const s of skipped) {
+    parts.push(s.reason === 'no project' ? `${s.ref} has no project. Set a review project above.` : `${s.ref}: ${s.reason}`);
+  }
+  return parts.join(' ') || 'No decision is due for review.';
+}
+
 const App = () => {
   const [settings, setSettings] = useState(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
   const [seeding, setSeeding] = useState(false);
+  const [running, setRunning] = useState(false);
 
   useEffect(() => {
     invoke('getSettings').then(setSettings);
@@ -70,6 +82,17 @@ const App = () => {
     setSeeding(false);
   };
 
+  const runReviews = async () => {
+    setRunning(true);
+    try {
+      const result = await invoke('runReviews');
+      setMessage({ from: 'reviews', appearance: result.skipped?.length ? 'warning' : 'success', text: describeRun(result) });
+    } catch (e) {
+      setMessage({ from: 'reviews', appearance: 'error', text: e.message });
+    }
+    setRunning(false);
+  };
+
   if (!settings) return <Spinner />;
 
   return (
@@ -99,12 +122,49 @@ const App = () => {
           isChecked={settings.useAi}
           onChange={toggle('useAi')}
         />
+        <Setting
+          id="reviewReminders"
+          label="Open review work items"
+          description="On a decision's review date, Precedent opens a work item for the owner to keep, replace or expire it."
+          isChecked={settings.reviewReminders}
+          onChange={toggle('reviewReminders')}
+        />
+        <Stack space="space.050">
+          <Label labelFor="reviewProjectKey">Review project</Label>
+          <Textfield
+            id="reviewProjectKey"
+            name="reviewProjectKey"
+            defaultValue={settings.reviewProjectKey}
+            placeholder="OPS"
+            onChange={(e) => {
+              const value = e.target.value;
+              setSettings((s) => ({ ...s, reviewProjectKey: value }));
+            }}
+          />
+          <HelperMessage>Project key for review work items. Leave empty to use the project each decision came from.</HelperMessage>
+        </Stack>
         <Inline>
           <LoadingButton appearance="primary" isLoading={saving} onClick={save}>
             Save
           </LoadingButton>
         </Inline>
         {message?.from === 'save' && <SectionMessage appearance={message.appearance}>{message.text}</SectionMessage>}
+        <Stack space="space.100">
+          <Heading size="small" as="h2">
+            Reviews due today
+          </Heading>
+          <Text color="color.text.subtle">
+            Precedent checks once a day. Check now to open review work items for decisions that are due.
+          </Text>
+          <Inline>
+            <LoadingButton isLoading={running} onClick={runReviews}>
+              Check for due reviews
+            </LoadingButton>
+          </Inline>
+          {message?.from === 'reviews' && (
+            <SectionMessage appearance={message.appearance}>{message.text}</SectionMessage>
+          )}
+        </Stack>
         <Stack space="space.100">
           <Heading size="small" as="h2">
             Try it with sample data

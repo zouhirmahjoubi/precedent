@@ -10,10 +10,12 @@ export function workText(work) {
   return `${work.summary || ''}\n${work.description || ''}`.trim().slice(0, MAX_WORK_CHARS);
 }
 
-// Changes when the work text or the decision changes, so old verdicts get judged again.
+// Changes when the work text or what the model reads about the decision changes,
+// so old verdicts get judged again. Reviews and counters leave it alone.
 export function verdictKey(work, decision) {
+  const d = [decision.ref, decision.title, decision.rationale || '', (decision.projectKeys || []).join(',')];
   return createHash('sha1')
-    .update(`${workText(work)}\n${decision.ref}\n${decision.updatedAt || ''}`)
+    .update(`${workText(work)}\n${d.join('\n')}`)
     .digest('hex')
     .slice(0, 16);
 }

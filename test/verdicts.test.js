@@ -69,7 +69,9 @@ test('verdict key changes when the work text or the decision changes', () => {
   const key = verdictKey(work, shipping);
   assert.equal(key, verdictKey({ ...work }, { ...shipping }));
   assert.notEqual(key, verdictKey({ summary: 'Free shipping on everything' }, shipping));
-  assert.notEqual(key, verdictKey(work, { ...shipping, updatedAt: '2026-11-01T00:00:00.000Z' }));
+  assert.notEqual(key, verdictKey(work, { ...shipping, title: 'No free shipping on orders under $30' }));
+  assert.notEqual(key, verdictKey(work, { ...shipping, rationale: 'Costs changed.' }));
+  assert.equal(key, verdictKey(work, { ...shipping, updatedAt: '2026-11-01T00:00:00.000Z', reviewBy: '2027-01-01' }));
 });
 
 test('a fitting promo is no longer a conflict, and unrelated matches disappear', () => {

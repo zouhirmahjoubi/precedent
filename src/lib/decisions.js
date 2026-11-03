@@ -145,6 +145,50 @@ export async function setStatus(ref, status, { replacedBy, note } = {}, accountI
   return saved;
 }
 
+// Kept after a review: a new review date, and the review recorded in its history.
+export async function keepDecision(ref, nextReviewBy, note, accountId) {
+  const current = await getDecision(ref);
+  if (!current) throw new Error(`No decision ${ref}.`);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(nextReviewBy || '') || nextReviewBy <= today()) {
+    throw new Error('Pick a next review date after today.');
+  }
+  const at = nowIso();
+  const saved = clean({
+    ...current,
+    reviewBy: nextReviewBy,
+    lastReviewedOn: today(),
+    updatedAt: at,
+    history: [...(current.history || []), { at, by: accountId, action: 'kept', note }].slice(-50),
+  });
+  await kvs.entity(ENTITY).set(current.ref, saved);
+  return saved;
+}
+
+// A review work item was opened for the decision's current review date.
+export async function markReminded(ref, issueKey) {
+  const current = await getDecision(ref);
+  if (!current) return null;
+  const saved = {
+    ...current,
+    reminderFor: current.reviewBy,
+    reviewIssueKey: issueKey,
+    history: [...(current.history || []), { at: nowIso(), action: 'review opened', note: issueKey }].slice(-50),
+  };
+  await kvs.entity(ENTITY).set(current.ref, saved);
+  return saved;
+}
+
+// Work items Precedent opened to review a decision: { ref, for, outcome }.
+const reviewKey = (issueKey) => `review:${issueKey}`;
+
+export async function getReview(issueKey) {
+  return (await kvs.get(reviewKey(issueKey))) || null;
+}
+
+export async function saveReview(issueKey, review) {
+  await kvs.set(reviewKey(issueKey), review);
+}
+
 export async function bumpCounter(ref, field, historyEntry) {
   const current = await getDecision(ref);
   if (!current) return null;
@@ -238,7 +282,13 @@ export async function addSamples(accountId) {
   return added;
 }
 
-const DEFAULT_SETTINGS = { commentOnConflict: true, commentOnPossible: false, useAi: false };
+const DEFAULT_SETTINGS = {
+  commentOnConflict: true,
+  commentOnPossible: false,
+  useAi: false,
+  reviewReminders: true,
+  reviewProjectKey: '',
+};
 
 export async function getSettings() {
   return { ...DEFAULT_SETTINGS, ...((await kvs.get('settings')) || {}) };
@@ -249,7 +299,12 @@ export async function saveSettings(settings) {
     commentOnConflict: Boolean(settings.commentOnConflict),
     commentOnPossible: Boolean(settings.commentOnPossible),
     useAi: Boolean(settings.useAi),
+    reviewReminders: Boolean(settings.reviewReminders),
+    reviewProjectKey: String(settings.reviewProjectKey || '').trim().toUpperCase(),
   };
+  if (next.reviewProjectKey && !/^[A-Z][A-Z0-9_]+$/.test(next.reviewProjectKey)) {
+    throw new Error('The review project should be a project key, for example OPS.');
+  }
   await kvs.set('settings', next);
   return next;
 }
