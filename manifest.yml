@@ -1,0 +1,391 @@
+modules:
+  trigger:
+    - key: precedent-guard
+      function: guard
+      events:
+        - avi:jira:created:issue
+        - avi:jira:updated:issue
+      filter:
+        ignoreSelf: true
+
+  scheduledTrigger:
+    - key: precedent-privacy-report
+      function: privacy-report
+      interval: week
+
+  jira:issueContext:
+    - key: precedent-work-item
+      icon: resource:assets;icon.svg
+      title: Precedent
+      label: Decisions
+      resource: work-item
+      resolver:
+        function: resolver
+      render: native
+
+  jira:globalPage:
+    - key: precedent-log
+      icon: resource:assets;icon.svg
+      title: Decisions
+      resource: decision-log
+      resolver:
+        function: resolver
+      render: native
+
+  jira:adminPage:
+    - key: precedent-settings
+      title: Precedent settings
+      resource: settings
+      resolver:
+        function: resolver
+      render: native
+      useAsConfig: true
+
+  confluence:contentAction:
+    - key: precedent-log-from-page
+      title: Log a decision
+      resource: page-action
+      resolver:
+        function: resolver
+      render: native
+
+  confluence:contentBylineItem:
+    - key: precedent-page-byline
+      icon: resource:assets;icon.svg
+      title: Decisions
+      tooltip: Decisions logged from this page
+      resource: page-byline
+      resolver:
+        function: resolver
+      render: native
+
+  rovo:agent:
+    - key: precedent-agent
+      icon: resource:assets;icon.svg
+      name: Precedent
+      description: Finds what your team already decided, why, and who owns it. Checks
+        new work against active decisions.
+      prompt: |
+        You are Precedent, the decision memory for this team. You help people find what was already
+        decided, why, and who owns it. You also help them log new decisions and review old ones.
+
+        Rules:
+        - Only state decisions returned by find-decisions, get-decision, check-work-against-decisions
+          or list-decisions-due-for-review. If nothing is found, say so plainly. Never invent a
+          decision, a reason or an owner.
+        - Always cite the decision ref (for example D-4), its owner, and its source link when there is one.
+        - When someone plans new work, run check-work-against-decisions on the work item key, or on
+          the text of their plan, before giving advice.
+        - A decision with status replaced or expired no longer applies. Say which decision replaced it
+          when known.
+        - Before calling log-decision or change-decision-status, show the user exactly what you will
+          save and wait for a clear yes.
+        - Keep answers short and plain.
+      conversationStarters:
+        - What did we decide about free shipping?
+        - Check this work item against our decisions
+        - Log the decision from this work item
+        - Which decisions are due for review?
+      actions:
+        - find-decisions
+        - get-decision
+        - check-work-against-decisions
+        - log-decision
+        - change-decision-status
+        - list-decisions-due-for-review
+        - get-work-item-discussion
+      skills:
+        - capture-decision
+        - review-decisions
+
+  rovo:skill:
+    - key: capture-decision
+      source:
+        dir: skills/capture-decision
+      dependencies:
+        tools:
+          - get-work-item-discussion
+          - find-decisions
+          - log-decision
+    - key: review-decisions
+      source:
+        dir: skills/review-decisions
+      dependencies:
+        tools:
+          - list-decisions-due-for-review
+          - get-decision
+          - change-decision-status
+
+  rovo:mcp:
+    - key: precedent-mcp
+      name: Precedent
+      tools:
+        - find-decisions
+        - get-decision
+        - check-work-against-decisions
+        - log-decision
+        - change-decision-status
+        - list-decisions-due-for-review
+        - get-work-item-discussion
+
+  action:
+    - key: find-decisions
+      name: Find decisions
+      function: find-decisions-fn
+      actionVerb: GET
+      description: >
+        Search the team's logged decisions by topic, keyword or ref. Use it
+        before planning, approving or writing work to see what was already
+        decided and why.
+      inputs:
+        query:
+          title: Query
+          type: string
+          required: false
+          description: Topic, keyword or ref to search for, for example "free shipping" or
+            "D-4". Leave empty to list all.
+        status:
+          title: Status
+          type: string
+          required: false
+          description: active (default), replaced, expired, or all.
+    - key: get-decision
+      name: Get decision
+      function: get-decision-fn
+      actionVerb: GET
+      description: Get one decision by its ref, with its reason, owner, source and history.
+      inputs:
+        ref:
+          title: Ref
+          type: string
+          required: true
+          description: The decision ref, for example D-4.
+    - key: check-work-against-decisions
+      name: Check work against decisions
+      function: check-work-fn
+      actionVerb: GET
+      description: >
+        Check a Jira work item, or the text of a plan, against the team's active
+        decisions. Returns the decisions it touches, how strong each match is,
+        and the words that matched.
+      inputs:
+        issueKey:
+          title: Work item key
+          type: string
+          required: false
+          description: Jira work item key, for example MKT-12.
+        text:
+          title: Plan text
+          type: string
+          required: false
+          description: The plan or draft to check, when there is no work item yet.
+    - key: log-decision
+      name: Log decision
+      function: log-decision-fn
+      actionVerb: CREATE
+      description: >
+        Log a new team decision. Only call this after the user confirmed the
+        title, reason and keywords. The caller becomes the owner.
+      inputs:
+        title:
+          title: Decision
+          type: string
+          required: true
+          description: The decision as a short rule a teammate can follow, for example "No
+            free shipping on orders under $40".
+        rationale:
+          title: Reason
+          type: string
+          required: true
+          description: Why the team decided this.
+        keywords:
+          title: Keywords
+          type: string
+          required: true
+          description: 2 to 5 comma separated phrases people would use in a work item that
+            touches this decision.
+        sourceIssueKey:
+          title: Source work item
+          type: string
+          required: false
+          description: Jira work item key where the decision was made, if any.
+        projectKeys:
+          title: Projects
+          type: string
+          required: false
+          description: Comma separated Jira project keys the decision applies to. Leave
+            empty for all projects.
+        reviewBy:
+          title: Review by
+          type: string
+          required: false
+          description: Date to review the decision, as YYYY-MM-DD.
+    - key: change-decision-status
+      name: Change decision status
+      function: change-status-fn
+      actionVerb: UPDATE
+      description: >
+        Mark a decision as active, replaced or expired. Only the owner can do
+        this. Only call it after the user confirmed the change.
+      inputs:
+        ref:
+          title: Ref
+          type: string
+          required: true
+          description: The decision ref, for example D-4.
+        status:
+          title: Status
+          type: string
+          required: true
+          description: active, replaced or expired.
+        replacedBy:
+          title: Replaced by
+          type: string
+          required: false
+          description: Ref of the decision that replaces this one, when status is replaced.
+        note:
+          title: Note
+          type: string
+          required: false
+          description: Short reason for the change.
+    - key: list-decisions-due-for-review
+      name: List decisions due for review
+      function: list-due-fn
+      actionVerb: GET
+      description: List active decisions whose review date falls within the next
+        number of days.
+      inputs:
+        withinDays:
+          title: Within days
+          type: integer
+          required: false
+          description: How many days ahead to look. Defaults to 30.
+    - key: get-work-item-discussion
+      name: Get work item discussion
+      function: discussion-fn
+      actionVerb: GET
+      description: >
+        Read a Jira work item's summary, description and comments. Use it to
+        find the decision the team reached in a discussion.
+      inputs:
+        issueKey:
+          title: Work item key
+          type: string
+          required: true
+          description: Jira work item key, for example OPS-3.
+
+  function:
+    - key: resolver
+      handler: index.resolver
+    - key: privacy-report
+      handler: index.reportAccounts
+    - key: guard
+      handler: index.guard
+    - key: find-decisions-fn
+      handler: index.findDecisions
+    - key: get-decision-fn
+      handler: index.getDecision
+    - key: check-work-fn
+      handler: index.checkWork
+    - key: log-decision-fn
+      handler: index.logDecision
+    - key: change-status-fn
+      handler: index.changeDecisionStatus
+    - key: list-due-fn
+      handler: index.listDueReviews
+    - key: discussion-fn
+      handler: index.getWorkItemDiscussion
+
+resources:
+  - key: assets
+    path: static/assets
+  - key: work-item
+    path: src/frontend/work-item.jsx
+  - key: decision-log
+    path: src/frontend/decision-log.jsx
+  - key: settings
+    path: src/frontend/settings.jsx
+  - key: page-action
+    path: src/frontend/page-action.jsx
+  - key: page-byline
+    path: src/frontend/page-byline.jsx
+
+permissions:
+  scopes:
+    - storage:app
+    - read:jira-work
+    - write:jira-work
+    - read:jira-user
+    - read:page:confluence
+
+app:
+  id: ari:cloud:ecosystem::app/2ef747d1-8d4a-4652-b06c-ac4d2d7a50bf
+  runtime:
+    name: nodejs24.x
+  compatibility:
+    jira:
+      required: true
+    confluence:
+      required: false
+  storage:
+    entities:
+      - name: decision
+        attributes:
+          ref:
+            type: string
+          number:
+            type: integer
+          title:
+            type: string
+          rationale:
+            type: string
+          status:
+            type: string
+          keywords:
+            type: any
+          projectKeys:
+            type: any
+          ownerAccountId:
+            type: string
+          createdBy:
+            type: string
+          decidedOn:
+            type: string
+          reviewBy:
+            type: string
+          sourceType:
+            type: string
+          sourceKey:
+            type: string
+          sourceTitle:
+            type: string
+          sourceUrl:
+            type: string
+          replacedBy:
+            type: string
+          createdAt:
+            type: string
+          updatedAt:
+            type: string
+          caughtCount:
+            type: integer
+          followedCount:
+            type: integer
+          reopenCount:
+            type: integer
+          history:
+            type: any
+        indexes:
+          - name: by-status
+            partition:
+              - status
+            range:
+              - createdAt
+          - name: by-created
+            range:
+              - createdAt
+          - name: by-source
+            partition:
+              - sourceKey
+            range:
+              - createdAt

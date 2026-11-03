@@ -1,0 +1,19 @@
+{
+  "name": "precedent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remembers what your team decided and why, and flags new Jira work that goes against it.",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test",
+    "lint": "forge lint"
+  },
+  "dependencies": {
+    "@forge/api": "^8.4.0",
+    "@forge/bridge": "^7.2.1",
+    "@forge/kvs": "^2.1.1",
+    "@forge/react": "^12.4.0",
+    "@forge/resolver": "^2.0.2",
+    "react": "^18.2.0"
+  }
+}
