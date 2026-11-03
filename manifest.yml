@@ -7,6 +7,12 @@ modules:
         - avi:jira:updated:issue
       filter:
         ignoreSelf: true
+    - key: precedent-capture
+      function: capture
+      events:
+        - avi:jira:commented:issue
+      filter:
+        ignoreSelf: true
 
   llm:
     - key: precedent-llm
@@ -293,6 +299,8 @@ modules:
       handler: index.sendReviewReminders
     - key: guard
       handler: index.guard
+    - key: capture
+      handler: index.capture
     - key: find-decisions-fn
       handler: index.findDecisions
     - key: get-decision-fn

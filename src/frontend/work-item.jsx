@@ -3,6 +3,7 @@ import ForgeReconciler, {
   Stack,
   Inline,
   Text,
+  Strong,
   Heading,
   Button,
   ButtonGroup,
@@ -25,6 +26,31 @@ import { invoke, view } from '@forge/bridge';
 import { DecisionCard, DecisionForm } from './components';
 import { ReviewPanel } from './review';
 import { isConflict } from '../lib/matcher';
+
+// A decision Precedent spotted in this work item's comments, ready to log.
+const SuggestionCard = ({ suggestion: s, isDismissing, onLog, onDismiss }) => (
+  <SectionMessage appearance="discovery" title="This looks like a decision">
+    <Stack space="space.100">
+      <Text>
+        <Strong>{s.title}</Strong>
+      </Text>
+      {s.rationale && <Text>Why: {s.rationale}</Text>}
+      {s.similar && (
+        <Text size="small" color="color.text.subtle">
+          Similar to {s.similar.ref}: {s.similar.title}
+        </Text>
+      )}
+      <ButtonGroup>
+        <Button appearance="primary" onClick={onLog}>
+          Log it
+        </Button>
+        <LoadingButton appearance="subtle" isLoading={isDismissing} onClick={onDismiss}>
+          Dismiss
+        </LoadingButton>
+      </ButtonGroup>
+    </Stack>
+  </SectionMessage>
+);
 
 const RESPONSES = {
   follow: { label: 'Following it', appearance: 'success' },
@@ -90,6 +116,7 @@ const App = () => {
   const [accountId, setAccountId] = useState();
   const [source, setSource] = useState(null);
   const [logging, setLogging] = useState(false);
+  const [fromSuggestion, setFromSuggestion] = useState(null);
   const [reopenFor, setReopenFor] = useState(null);
   const [busy, setBusy] = useState('');
 
@@ -114,19 +141,40 @@ const App = () => {
     setBusy('');
   };
 
-  const openLog = async () => {
+  const openLog = async (suggestion = null) => {
+    setFromSuggestion(suggestion);
     setLogging(true);
     if (!source) setSource(await invoke('getSourceContext'));
+  };
+
+  const dismissSuggestion = async () => {
+    setBusy('suggestion:dismiss');
+    try {
+      await invoke('dismissSuggestion');
+      await load();
+    } catch (e) {
+      setError(e.message);
+    }
+    setBusy('');
   };
 
   if (error) return <SectionMessage appearance="error">{error}</SectionMessage>;
   if (!data) return <Spinner label="Checking decisions" />;
 
-  const { matches, fromHere, review } = data;
+  const { matches, fromHere, review, suggestion } = data;
   const banner = matches.length ? summarize(matches) : null;
 
   return (
     <Stack space="space.300">
+      {!review && suggestion && (
+        <SuggestionCard
+          suggestion={suggestion}
+          isDismissing={busy === 'suggestion:dismiss'}
+          onLog={() => openLog(suggestion)}
+          onDismiss={dismissSuggestion}
+        />
+      )}
+
       {review ? (
         <ReviewPanel review={review} accountId={accountId} onDone={load} />
       ) : banner ? (
@@ -177,7 +225,7 @@ const App = () => {
           <Heading size="xsmall" as="h3">
             Decided here
           </Heading>
-          <Button spacing="compact" onClick={openLog}>
+          <Button spacing="compact" onClick={() => openLog()}>
             Log a decision
           </Button>
         </Inline>
@@ -199,8 +247,13 @@ const App = () => {
             <ModalBody>
               {source ? (
                 <DecisionForm
-                  source={source}
-                  initial={{ projectKeys: source.projectKey ? [source.projectKey] : [] }}
+                  source={fromSuggestion ? { ...source, fromSuggestion: fromSuggestion.commentId } : source}
+                  initial={{
+                    title: fromSuggestion?.title,
+                    rationale: fromSuggestion?.rationale,
+                    keywords: fromSuggestion?.keywords,
+                    projectKeys: source.projectKey ? [source.projectKey] : [],
+                  }}
                   ownerAccountId={accountId}
                   onCancel={() => setLogging(false)}
                   onSaved={() => {

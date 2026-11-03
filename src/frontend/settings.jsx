@@ -18,7 +18,7 @@ import { invoke } from '@forge/bridge';
 
 const pageStyle = xcss({ padding: 'space.400' });
 // Keeps a toggle from being squeezed when its description wraps.
-const toggleStyle = xcss({ minWidth: '40px' });
+const toggleStyle = xcss({ minWidth: '40px' }); // ds-allow-hardcode: UI Kit has no size token for a toggle's width
 
 const Setting = ({ id, label, description, isChecked, onChange }) => (
   <Inline space="space.200" alignBlock="start">
@@ -121,6 +121,13 @@ const App = () => {
           description="When keywords match, an Atlassian-hosted model judges whether the work goes against the decision, fits it, or is unrelated, and says why. Work item text stays inside Atlassian."
           isChecked={settings.useAi}
           onChange={toggle('useAi')}
+        />
+        <Setting
+          id="suggestFromComments"
+          label="Suggest decisions from comments"
+          description="When a comment reads like a decision, Precedent offers to log it from the work item. With AI checks on, the model fills in the rule, reason and keywords."
+          isChecked={settings.suggestFromComments}
+          onChange={toggle('suggestFromComments')}
         />
         <Setting
           id="reviewReminders"

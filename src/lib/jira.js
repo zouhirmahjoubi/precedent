@@ -13,6 +13,7 @@ export async function getWorkItem(issueKey) {
     summary: issue.fields.summary || '',
     description: adfToText(issue.fields.description).trim(),
     comments: (issue.fields.comment?.comments || []).map((c) => ({
+      id: c.id,
       author: c.author?.displayName,
       accountId: c.author?.accountId,
       created: c.created,

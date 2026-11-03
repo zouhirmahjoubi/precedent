@@ -1,8 +1,9 @@
-// A second opinion on keyword matches: would the work, done as written,
-// break the decision, fit it, or is it about something else? Runs on
-// Atlassian-hosted Forge LLMs, so work item text never leaves Atlassian.
+// Calls to Atlassian-hosted Forge LLMs, so work item text never leaves Atlassian.
+// judge: a second opinion on keyword matches (conflicts, fits, unclear, unrelated).
+// extractDecision: the decision a comment states, if any.
 import { chat } from '@forge/llm';
 import { buildPrompt, parseVerdicts } from './verdicts';
+import { buildExtractPrompt, parseExtract } from './suggest';
 
 const MAX_DECISIONS = 6;
 
@@ -16,5 +17,15 @@ export async function judge(work, decisions) {
   } catch (e) {
     console.warn(`Precedent: AI check failed, using keyword matches only. ${e.message}`);
     return {};
+  }
+}
+
+// Null when there is no decision or the call fails.
+export async function extractDecision(work, comment) {
+  try {
+    return parseExtract(await chat(buildExtractPrompt(work, comment)));
+  } catch (e) {
+    console.warn(`Precedent: could not read a decision from ${work.key}. ${e.message}`);
+    return null;
   }
 }

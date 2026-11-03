@@ -12,6 +12,8 @@ import {
   saveFlags,
   saveVerdicts,
   getReview,
+  getSuggestion,
+  saveSuggestion,
   getSettings,
   saveSettings,
   addSamples,
@@ -53,8 +55,19 @@ resolver.define('getOverview', async () => {
 resolver.define('getDecision', ({ payload }) => getDecision(payload.ref));
 
 resolver.define('saveDecision', async ({ payload, context }) => {
-  const { ref, ...fields } = payload;
-  if (!ref) return createDecision(fields, context.accountId);
+  const { ref, fromSuggestion, ...fields } = payload;
+  if (!ref) {
+    const created = await createDecision(fields, context.accountId);
+    // Logged from a suggestion card: mark that suggestion done.
+    const issueKey = context.extension?.issue?.key;
+    if (fromSuggestion && issueKey) {
+      const suggestion = await getSuggestion(issueKey);
+      if (suggestion?.commentId === fromSuggestion) {
+        await saveSuggestion(issueKey, { ...suggestion, status: 'logged', ref: created.ref });
+      }
+    }
+    return created;
+  }
   const current = await getDecision(ref);
   if (!current) throw new Error(`No decision ${ref}.`);
   assertCanChange(current, context);
@@ -81,11 +94,12 @@ resolver.define('getWorkItemView', async ({ context }) => {
       fromHere,
     };
   }
-  const [work, settings, flags, fromHere] = await Promise.all([
+  const [work, settings, flags, fromHere, suggestion] = await Promise.all([
     getWorkItem(issueKey),
     getSettings(),
     getFlags(issueKey),
     listBySource(issueKey),
+    getSuggestion(issueKey),
   ]);
   const { matches, judged } = await checkWorkItem(work, flags, settings);
   if (Object.keys(judged).length) await saveVerdicts(issueKey, judged);
@@ -101,7 +115,14 @@ resolver.define('getWorkItemView', async ({ context }) => {
       response: flags[m.decision.ref]?.response,
     })),
     fromHere,
+    suggestion: suggestion?.status === 'pending' ? suggestion : null,
   };
+});
+
+resolver.define('dismissSuggestion', async ({ context }) => {
+  const issueKey = context.extension.issue.key;
+  const suggestion = await getSuggestion(issueKey);
+  if (suggestion) await saveSuggestion(issueKey, { ...suggestion, status: 'dismissed' });
 });
 
 function reopenComment(decision, accountId, note) {

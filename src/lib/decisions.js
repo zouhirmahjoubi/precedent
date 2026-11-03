@@ -178,6 +178,18 @@ export async function markReminded(ref, issueKey) {
   return saved;
 }
 
+// A decision spotted in a work item's comments: { commentId, title, rationale,
+// keywords, similar, status: pending | dismissed | logged, ref, at, nudged }.
+const suggestionKey = (issueKey) => `suggest:${issueKey}`;
+
+export async function getSuggestion(issueKey) {
+  return (await kvs.get(suggestionKey(issueKey))) || null;
+}
+
+export async function saveSuggestion(issueKey, suggestion) {
+  await kvs.set(suggestionKey(issueKey), suggestion);
+}
+
 // Work items Precedent opened to review a decision: { ref, for, outcome }.
 const reviewKey = (issueKey) => `review:${issueKey}`;
 
@@ -288,6 +300,7 @@ const DEFAULT_SETTINGS = {
   useAi: false,
   reviewReminders: true,
   reviewProjectKey: '',
+  suggestFromComments: true,
 };
 
 export async function getSettings() {
@@ -300,6 +313,7 @@ export async function saveSettings(settings) {
     commentOnPossible: Boolean(settings.commentOnPossible),
     useAi: Boolean(settings.useAi),
     reviewReminders: Boolean(settings.reviewReminders),
+    suggestFromComments: Boolean(settings.suggestFromComments),
     reviewProjectKey: String(settings.reviewProjectKey || '').trim().toUpperCase(),
   };
   if (next.reviewProjectKey && !/^[A-Z][A-Z0-9_]+$/.test(next.reviewProjectKey)) {
