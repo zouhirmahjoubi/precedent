@@ -114,6 +114,7 @@ export const ReviewPanel = ({ review, accountId, onDone }) => {
       <Stack space="space.200">
         <SectionMessage appearance="success" title={o.title}>
           <Text>{o.text}</Text>
+          {review.from && <Text>The answer was posted on {review.from} too.</Text>}
           {review.outcome.closed === false && (
             <Text>This workflow has no direct step to Done, so close this work item when you are ready.</Text>
           )}
@@ -126,7 +127,11 @@ export const ReviewPanel = ({ review, accountId, onDone }) => {
   const canReview = d.ownerAccountId === accountId || d.createdBy === accountId;
   return (
     <Stack space="space.200">
-      <SectionMessage appearance="information" title={`${d.ref} is due for review`}>
+      <SectionMessage
+        appearance="information"
+        title={review.kind === 'reopen' ? `${d.ref} was challenged on ${review.from}` : `${d.ref} is due for review`}
+      >
+        {review.kind === 'reopen' && review.note && <Text>What changed: {review.note}</Text>}
         <Text>
           {canReview
             ? 'Keep it, replace it with a new decision, or let it expire.'

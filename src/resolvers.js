@@ -23,7 +23,7 @@ import { getWorkItem, addComment, getSiteUrl } from './lib/jira';
 import { getPage } from './lib/confluence';
 import { checkWorkItem } from './lib/check';
 import { nextReviewDate, isoDay } from './lib/review';
-import { runReviewReminders, recordReview } from './reviews';
+import { runReviewReminders, recordReview, openReopenReview } from './reviews';
 import { draftFromItem } from './lib/suggest';
 import { pageDecisions } from './lib/page';
 import { draftPageDecision } from './lib/judge';
@@ -98,12 +98,13 @@ resolver.define('getWorkItemView', async ({ context }) => {
       fromHere,
     };
   }
-  const [work, settings, flags, fromHere, suggestion] = await Promise.all([
+  const [work, settings, flags, fromHere, suggestion, siteUrl] = await Promise.all([
     getWorkItem(issueKey),
     getSettings(),
     getFlags(issueKey),
     listBySource(issueKey),
     getSuggestion(issueKey),
+    getSiteUrl(),
   ]);
   const { matches, judged } = await checkWorkItem(work, flags, settings);
   if (Object.keys(judged).length) await saveVerdicts(issueKey, judged);
@@ -117,9 +118,11 @@ resolver.define('getWorkItemView', async ({ context }) => {
       verdict: m.verdict,
       reason: m.reason,
       response: flags[m.decision.ref]?.response,
+      reviewIssueKey: flags[m.decision.ref]?.reviewIssueKey,
     })),
     fromHere,
     suggestion: suggestion?.status === 'pending' ? suggestion : null,
+    siteUrl,
   };
 });
 
@@ -129,7 +132,7 @@ resolver.define('dismissSuggestion', async ({ context }) => {
   if (suggestion) await saveSuggestion(issueKey, { ...suggestion, status: 'dismissed' });
 });
 
-function reopenComment(decision, accountId, note) {
+function reopenComment(decision, accountId, note, reviewKey) {
   const owner = decision.ownerAccountId;
   const asks =
     !owner || owner === accountId
@@ -137,7 +140,10 @@ function reopenComment(decision, accountId, note) {
       : [mention(accountId), text(' asks '), mention(owner), text(' to reopen ')];
   return doc(
     paragraph(strong('Precedent: '), ...asks, text(`${decision.ref} "${decision.title}" for this work.`)),
-    ...(note ? [paragraph(strong('What changed: '), text(note))] : [])
+    ...(note ? [paragraph(strong('What changed: '), text(note))] : []),
+    ...(reviewKey
+      ? [paragraph(text(`Precedent opened ${reviewKey} for the owner to decide. The answer will be posted here.`))]
+      : [])
   );
 }
 
@@ -157,13 +163,23 @@ resolver.define('respond', async ({ payload, context }) => {
     await bumpCounter(ref, 'followedCount', { at, by: context.accountId, action: 'followed', note: issueKey });
   }
   if (response === 'reopen') {
-    await bumpCounter(ref, 'reopenCount', {
+    const counted = await bumpCounter(ref, 'reopenCount', {
       at,
       by: context.accountId,
       action: 'reopen requested',
       note: note ? `${issueKey}: ${note}` : issueKey,
     });
-    await addComment(issueKey, reopenComment(decision, context.accountId, note));
+    let reviewKey = null;
+    try {
+      reviewKey = await openReopenReview(counted || decision, issueKey, context.accountId, note);
+    } catch (e) {
+      console.warn(`Precedent: could not open a review for ${ref}. ${e.message}`);
+    }
+    if (reviewKey) {
+      flags[ref].reviewIssueKey = reviewKey;
+      await saveFlags(issueKey, flags);
+    }
+    await addComment(issueKey, reopenComment(decision, context.accountId, note, reviewKey));
   }
   return flags[ref];
 });

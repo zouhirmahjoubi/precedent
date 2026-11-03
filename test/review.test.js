@@ -8,6 +8,8 @@ import {
   record,
   reviewSummary,
   reviewDescription,
+  reopenSummary,
+  reopenDescription,
   outcomeComment,
 } from '../src/lib/review.js';
 
@@ -86,6 +88,21 @@ test('the review work item names the decision and mentions the owner', () => {
   assert.match(json, /D-1 is due for review/);
   assert.match(json, /Print costs went up/);
   assert.match(json, /"href":"https:\/\/example.atlassian.net\/browse\/MKT-1"/);
+});
+
+test('the reopen work item names who asked, what changed and where', () => {
+  const d = { ...base, ref: 'D-1', title: 'No free shipping on orders under $40', rationale: 'Print costs went up.', ownerAccountId: 'owner-1' };
+  assert.equal(reopenSummary(d), 'Reopen decision D-1: No free shipping on orders under $40');
+  const json = JSON.stringify(reopenDescription(d, 'MKT-12', 'acc-9', 'Carrier rates dropped 15%.'));
+  assert.match(json, /"id":"acc-9"/);
+  assert.match(json, /asks to reopen D-1 for MKT-12/);
+  assert.match(json, /"id":"owner-1"/);
+  assert.match(json, /What changed/);
+  assert.match(json, /Carrier rates dropped 15%/);
+  assert.match(json, /posted back on MKT-12/);
+  const own = JSON.stringify(reopenDescription({ ...d, ownerAccountId: 'acc-9' }, 'MKT-12', 'acc-9'));
+  assert.doesNotMatch(own, /What changed/);
+  assert.equal((own.match(/"id":"acc-9"/g) || []).length, 1, 'the owner is not asked to mention themselves');
 });
 
 test('the outcome comment says what happened', () => {

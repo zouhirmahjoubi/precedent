@@ -9,6 +9,7 @@ import ForgeReconciler, {
   ButtonGroup,
   LoadingButton,
   Lozenge,
+  Link,
   SectionMessage,
   Spinner,
   TextArea,
@@ -161,7 +162,7 @@ const App = () => {
   if (error) return <SectionMessage appearance="error">{error}</SectionMessage>;
   if (!data) return <Spinner label="Checking decisions" />;
 
-  const { matches, fromHere, review, suggestion } = data;
+  const { matches, fromHere, review, suggestion, siteUrl } = data;
   const banner = matches.length ? summarize(matches) : null;
 
   return (
@@ -193,6 +194,11 @@ const App = () => {
             {done ? (
               <Inline space="space.100" alignBlock="center">
                 <Lozenge appearance={done.appearance}>{done.label}</Lozenge>
+                {m.response === 'reopen' && m.reviewIssueKey && siteUrl && (
+                  <Link href={`${siteUrl}/browse/${m.reviewIssueKey}`} openNewTab>
+                    Owner's review: {m.reviewIssueKey}
+                  </Link>
+                )}
                 <Button appearance="subtle" spacing="compact" onClick={() => respond(ref, 'undo')}>
                   Undo
                 </Button>

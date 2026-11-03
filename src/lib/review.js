@@ -64,6 +64,27 @@ export function reviewDescription(d) {
   );
 }
 
+export function reopenSummary(d) {
+  return `Reopen decision ${d.ref}: ${d.title}`.slice(0, 250);
+}
+
+// The work item that asks the owner to decide after someone challenged the decision.
+export function reopenDescription(d, fromKey, accountId, note) {
+  const ask =
+    d.ownerAccountId && d.ownerAccountId !== accountId
+      ? [mention(d.ownerAccountId), text(', keep it, replace it, or let it expire.')]
+      : [text('Keep it, replace it, or let it expire.')];
+  return doc(
+    paragraph(strong('Precedent: '), mention(accountId), text(` asks to reopen ${d.ref} for ${fromKey}. `), ...ask),
+    paragraph(strong(d.title)),
+    ...(d.rationale ? [paragraph(strong('Why it was decided: '), text(d.rationale))] : []),
+    ...(note ? [paragraph(strong('What changed: '), text(note))] : []),
+    paragraph(text(record(d))),
+    ...(d.sourceUrl ? [paragraph(link(d.sourceTitle ? `Where it was decided: ${d.sourceTitle}` : 'Where it was decided', d.sourceUrl))] : []),
+    paragraph(text(`Open Precedent on this work item to record the outcome. The answer is posted back on ${fromKey}.`))
+  );
+}
+
 export function outcomeComment(d, { action, nextReviewBy, replacedBy, note }, accountId) {
   const what = {
     keep: `kept ${d.ref}. Next review: ${formatDay(nextReviewBy)}.`,

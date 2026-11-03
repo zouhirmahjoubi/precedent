@@ -12,7 +12,7 @@ Precedent is a Forge app for Jira and Confluence. It keeps a record of your team
 - **Per work item flags:** which decisions were flagged on a work item and how people responded.
 - **Decision suggestions:** when a comment reads like a decision, the suggested rule, reason and keywords, the comment's ID, and whether someone logged or dismissed it. No account IDs are stored with a suggestion.
 - **Skipped page decisions:** per Confluence page, the IDs of decision items the team chose not to log.
-- **Review work items:** which Jira work items Precedent opened to review a decision, and the outcome (kept, replaced or expired). Who recorded the outcome is kept in the decision's history.
+- **Review work items:** which Jira work items Precedent opened to review a decision, and the outcome (kept, replaced or expired). For a reopen request, also which work item asked and the note the requester wrote. Who asked and who recorded the outcome is kept in the decision's history.
 - **Settings** chosen by a site admin.
 
 ## What Precedent reads but does not keep
