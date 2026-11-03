@@ -1,6 +1,6 @@
 // Scores a piece of work (summary + description) against decisions.
-// Deterministic on purpose: it runs in a product trigger with no LLM,
-// and the matched terms double as the explanation shown to the user.
+// Deterministic on purpose: it is the cheap first pass on every edit, and
+// the matched terms double as the explanation when no AI verdict is used.
 
 const STOPWORDS = new Set(
   (
@@ -99,4 +99,23 @@ export function findMatches(decisions, work) {
     .map((d) => ({ decision: d, ...scoreDecision(d, text) }))
     .filter((m) => m.strength !== 'none')
     .sort((a, b) => b.score - a.score);
+}
+
+// With an AI verdict, only "conflicts" counts. Without one, the keyword strength decides.
+export function isConflict(match) {
+  return match.verdict ? match.verdict === 'conflicts' : match.strength === 'strong';
+}
+
+const RANK = { conflicts: 0, unclear: 2, fits: 4 };
+const rank = (m) => (m.verdict ? RANK[m.verdict] : m.strength === 'strong' ? 1 : 3);
+
+// verdicts: { [ref]: { verdict, reason } }. Unrelated matches are dropped, conflicts sort first.
+export function applyVerdicts(matches, verdicts) {
+  return matches
+    .map((m) => {
+      const v = verdicts[m.decision.ref];
+      return v ? { ...m, verdict: v.verdict, reason: v.reason } : m;
+    })
+    .filter((m) => m.verdict !== 'unrelated')
+    .sort((a, b) => rank(a) - rank(b) || b.score - a.score);
 }

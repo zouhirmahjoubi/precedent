@@ -4,6 +4,7 @@ import {
   Stack,
   Inline,
   Text,
+  Strong,
   Heading,
   Lozenge,
   Link,
@@ -25,6 +26,7 @@ import {
   xcss,
 } from '@forge/react';
 import { invoke } from '@forge/bridge';
+import { isConflict } from '../lib/matcher';
 
 export const STATUS = {
   active: { label: 'Active', appearance: 'success' },
@@ -61,11 +63,31 @@ const flaggedCardStyle = xcss({
   backgroundColor: 'elevation.surface',
 });
 
-// One decision, the same everywhere it appears. `match` adds why it was flagged.
+const verdictStyle = (backgroundColor) =>
+  xcss({ backgroundColor, borderRadius: 'border.radius.100', padding: 'space.100' });
+
+const VERDICT = {
+  conflicts: { label: 'Conflicts', appearance: 'warning', style: verdictStyle('color.background.warning') },
+  unclear: { label: 'Unclear', appearance: 'information', style: verdictStyle('color.background.neutral') },
+  fits: { label: 'Fits', appearance: 'success', style: verdictStyle('color.background.success') },
+};
+
+const MatchLozenge = ({ match }) => {
+  const v = VERDICT[match.verdict];
+  if (v) return <Lozenge appearance={v.appearance}>{v.label}</Lozenge>;
+  return match.strength === 'strong' ? (
+    <Lozenge appearance="warning">Likely conflict</Lozenge>
+  ) : (
+    <Lozenge>Related</Lozenge>
+  );
+};
+
+// One decision, the same everywhere it appears. `match` adds how this work relates to it:
+// an AI verdict with a reason when there is one, otherwise the words that matched.
 export const DecisionCard = ({ decision: d, match, children }) => {
-  const terms = match ? (match.matchedKeywords.length ? match.matchedKeywords : match.matchedWords) : [];
+  const terms = match && !match.reason ? (match.matchedKeywords.length ? match.matchedKeywords : match.matchedWords) : [];
   return (
-    <Box xcss={match?.strength === 'strong' ? flaggedCardStyle : cardStyle}>
+    <Box xcss={match && isConflict(match) ? flaggedCardStyle : cardStyle}>
       <Stack space="space.150">
         <Inline spread="space-between" alignBlock="center">
           <Inline space="space.100" alignBlock="center">
@@ -74,16 +96,20 @@ export const DecisionCard = ({ decision: d, match, children }) => {
             </Text>
             <StatusLozenge status={d.status} />
           </Inline>
-          {match && (
-            <Lozenge appearance={match.strength === 'strong' ? 'warning' : 'default'}>
-              {match.strength === 'strong' ? 'Likely conflict' : 'Related'}
-            </Lozenge>
-          )}
+          {match && <MatchLozenge match={match} />}
         </Inline>
         <Heading size="small" as="h3">
           {d.title}
         </Heading>
         {d.rationale && <Text>{d.rationale}</Text>}
+        {match?.reason && (
+          <Box xcss={(VERDICT[match.verdict] || VERDICT.unclear).style}>
+            <Text>
+              <Strong>This work: </Strong>
+              {match.reason}
+            </Text>
+          </Box>
+        )}
         <Inline space="space.200" alignBlock="center" shouldWrap>
           {d.ownerAccountId && <User accountId={d.ownerAccountId} />}
           <Text size="small" color="color.text.subtle">

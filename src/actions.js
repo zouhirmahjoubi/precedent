@@ -7,8 +7,10 @@ import {
   createDecision,
   setStatus,
   matchWork,
+  getFlags,
 } from './lib/decisions';
-import { findMatches } from './lib/matcher';
+import { findMatches, applyVerdicts } from './lib/matcher';
+import { storedVerdicts } from './lib/check';
 import { getWorkItem, getSiteUrl } from './lib/jira';
 import { displayName } from './lib/users';
 
@@ -65,13 +67,22 @@ export async function checkWork(payload) {
   } else {
     return fail('Pass a Jira work item key or the text of the plan to check.');
   }
-  const matches = payload.issueKey ? await matchWork(work) : findMatches(await listDecisions({ status: 'active' }), work);
+  let matches;
+  if (payload.issueKey) {
+    // Reuse verdicts the Guard or panel already stored, without calling the model again.
+    const [found, flags] = await Promise.all([matchWork(work), getFlags(work.key)]);
+    matches = applyVerdicts(found, storedVerdicts(work, found, flags));
+  } else {
+    matches = findMatches(await listDecisions({ status: 'active' }), work);
+  }
   if (!matches.length) return { checked: work.key || 'text', matches: [], note: 'No active decision touches this work.' };
   return {
     checked: work.key || 'text',
     matches: await Promise.all(
       matches.map(async (m) => ({
         strength: m.strength,
+        verdict: m.verdict,
+        reason: m.reason,
         matched: m.matchedKeywords.length ? m.matchedKeywords : m.matchedWords,
         decision: await brief(m.decision),
       }))

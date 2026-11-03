@@ -1,5 +1,7 @@
 import { getWorkItem, addComment } from './lib/jira';
-import { matchWork, getFlags, saveFlags, getSettings, bumpCounter } from './lib/decisions';
+import { getFlags, saveFlags, getSettings, bumpCounter } from './lib/decisions';
+import { checkWorkItem } from './lib/check';
+import { guardStep } from './lib/flags';
 import { doc, paragraph, strong, text, mention, link, bulletList } from './lib/adf';
 
 const WATCHED_FIELDS = new Set(['summary', 'description']);
@@ -7,26 +9,28 @@ const WATCHED_FIELDS = new Set(['summary', 'description']);
 function decisionLine(match) {
   const d = match.decision;
   const line = [strong(`${d.ref} ${d.title}`)];
+  if (match.reason) line.push(text(` ${match.reason}`));
   if (d.rationale) line.push(text(` Why: ${d.rationale}`));
   if (d.ownerAccountId) line.push(text(' Owner: '), mention(d.ownerAccountId), text('.'));
-  if (match.matchedKeywords.length) line.push(text(` Matched: ${match.matchedKeywords.join(', ')}.`));
+  if (!match.reason && match.matchedKeywords.length) line.push(text(` Matched: ${match.matchedKeywords.join(', ')}.`));
   if (d.sourceUrl) line.push(text(' '), link('Where it was decided', d.sourceUrl));
   return line;
 }
 
 export function guardComment(matches) {
   const many = matches.length > 1;
+  const verb = matches.every((m) => m.verdict === 'conflicts') ? 'goes against' : 'touches';
   return doc(
     paragraph(
       strong('Precedent: '),
-      text(many ? `this work touches ${matches.length} active decisions.` : 'this work touches an active decision.')
+      text(many ? `this work ${verb} ${matches.length} active decisions.` : `this work ${verb} an active decision.`)
     ),
     bulletList(matches.map(decisionLine)),
     paragraph(text('Open Precedent on this work item to follow the decision or ask the owner to reopen it.'))
   );
 }
 
-// Runs on work item created and updated. Flags each decision once per work item.
+// Runs on work item created and updated.
 export async function onWorkItemChanged(event) {
   if (event.selfGenerated) return;
   const issueKey = event.issue?.key;
@@ -37,24 +41,13 @@ export async function onWorkItemChanged(event) {
     if (!items.some((i) => WATCHED_FIELDS.has(i.field) || WATCHED_FIELDS.has(i.fieldId))) return;
   }
 
-  const work = await getWorkItem(issueKey);
-  const matches = await matchWork(work);
-  if (!matches.length) return;
+  const [work, settings, flags] = await Promise.all([getWorkItem(issueKey), getSettings(), getFlags(issueKey)]);
+  const { matches, judged } = await checkWorkItem(work, flags, settings);
+  if (!matches.length && !Object.keys(judged).length) return;
 
-  const flags = await getFlags(issueKey);
-  const fresh = matches.filter((m) => !flags[m.decision.ref]);
-  if (!fresh.length) return;
+  const step = guardStep(flags, matches, judged, settings, new Date().toISOString());
+  for (const m of step.caught) await bumpCounter(m.decision.ref, 'caughtCount');
+  await saveFlags(issueKey, step.flags);
 
-  const at = new Date().toISOString();
-  for (const m of fresh) {
-    flags[m.decision.ref] = { strength: m.strength, matchedKeywords: m.matchedKeywords, at };
-    await bumpCounter(m.decision.ref, 'caughtCount');
-  }
-  await saveFlags(issueKey, flags);
-
-  const settings = await getSettings();
-  const toComment = fresh.filter((m) => m.strength === 'strong' || settings.commentOnPossible);
-  if (settings.commentOnConflict && toComment.length) {
-    await addComment(issueKey, guardComment(toComment));
-  }
+  if (step.toComment.length) await addComment(issueKey, guardComment(step.toComment));
 }

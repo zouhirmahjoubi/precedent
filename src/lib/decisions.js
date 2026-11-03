@@ -187,6 +187,13 @@ export async function saveFlags(issueKey, flags) {
   await kvs.set(flagKey(issueKey), flags);
 }
 
+// Merges into what is stored, so a response saved at the same moment is kept.
+export async function saveVerdicts(issueKey, judged) {
+  const flags = await getFlags(issueKey);
+  for (const [ref, v] of Object.entries(judged)) flags[ref] = { ...flags[ref], ...v };
+  await saveFlags(issueKey, flags);
+}
+
 // Sample decisions from a small phone case store, so a fresh site can try the Guard.
 const SAMPLES = [
   {
@@ -231,7 +238,7 @@ export async function addSamples(accountId) {
   return added;
 }
 
-const DEFAULT_SETTINGS ={ commentOnConflict: true, commentOnPossible: false };
+const DEFAULT_SETTINGS = { commentOnConflict: true, commentOnPossible: false, useAi: false };
 
 export async function getSettings() {
   return { ...DEFAULT_SETTINGS, ...((await kvs.get('settings')) || {}) };
@@ -241,6 +248,7 @@ export async function saveSettings(settings) {
   const next = {
     commentOnConflict: Boolean(settings.commentOnConflict),
     commentOnPossible: Boolean(settings.commentOnPossible),
+    useAi: Boolean(settings.useAi),
   };
   await kvs.set('settings', next);
   return next;

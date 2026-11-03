@@ -23,12 +23,32 @@ import ForgeReconciler, {
 } from '@forge/react';
 import { invoke, view } from '@forge/bridge';
 import { DecisionCard, DecisionForm } from './components';
+import { isConflict } from '../lib/matcher';
 
 const RESPONSES = {
   follow: { label: 'Following it', appearance: 'success' },
   reopen: { label: 'Reopen requested', appearance: 'inprogress' },
   unrelated: { label: 'Marked not related', appearance: 'default' },
 };
+
+const count = (n) => (n === 1 ? 'an active decision' : `${n} active decisions`);
+const ASK = 'Read the decision before you start. Follow it, or ask the owner to reopen it.';
+
+// The banner above the cards. AI verdicts say "goes against"; keyword matches only "touch".
+function summarize(matches) {
+  const conflicts = matches.filter(isConflict);
+  if (conflicts.some((m) => m.verdict)) {
+    return { appearance: 'warning', title: `This work goes against ${count(conflicts.length)}`, text: ASK };
+  }
+  if (matches.every((m) => m.verdict === 'fits')) {
+    return {
+      appearance: 'success',
+      title: 'This work fits your decisions',
+      text: 'Precedent checked it against the decisions it touches.',
+    };
+  }
+  return { appearance: conflicts.length ? 'warning' : 'information', title: `This work touches ${count(matches.length)}`, text: ASK };
+}
 
 const ReopenModal = ({ decision, isSending, onClose, onSend }) => {
   const { register, handleSubmit, getFieldId } = useForm({ defaultValues: { note: '' } });
@@ -102,23 +122,16 @@ const App = () => {
   if (!data) return <Spinner label="Checking decisions" />;
 
   const { matches, fromHere } = data;
-  const strong = matches.filter((m) => m.strength === 'strong');
+  const banner = matches.length ? summarize(matches) : null;
 
   return (
     <Stack space="space.300">
-      {matches.length === 0 ? (
-        <Text color="color.text.subtle">No active decision touches this work.</Text>
-      ) : (
-        <SectionMessage
-          appearance={strong.length ? 'warning' : 'information'}
-          title={
-            matches.length === 1
-              ? 'This work touches an active decision'
-              : `This work touches ${matches.length} active decisions`
-          }
-        >
-          <Text>Read the decision before you start. Follow it, or ask the owner to reopen it.</Text>
+      {banner ? (
+        <SectionMessage appearance={banner.appearance} title={banner.title}>
+          <Text>{banner.text}</Text>
         </SectionMessage>
+      ) : (
+        <Text color="color.text.subtle">No active decision touches this work.</Text>
       )}
 
       {matches.map((m) => {
@@ -133,7 +146,7 @@ const App = () => {
                   Undo
                 </Button>
               </Inline>
-            ) : (
+            ) : m.verdict === 'fits' ? null : (
               <ButtonGroup>
                 <LoadingButton
                   appearance="primary"

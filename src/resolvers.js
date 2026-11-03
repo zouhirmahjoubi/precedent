@@ -8,15 +8,16 @@ import {
   updateDecision,
   setStatus,
   bumpCounter,
-  matchWork,
   getFlags,
   saveFlags,
+  saveVerdicts,
   getSettings,
   saveSettings,
   addSamples,
 } from './lib/decisions';
 import { getWorkItem, addComment, getSiteUrl } from './lib/jira';
 import { getPage } from './lib/confluence';
+import { checkWorkItem } from './lib/check';
 import { doc, paragraph, strong, text, mention } from './lib/adf';
 
 const resolver = new Resolver();
@@ -67,8 +68,14 @@ resolver.define('setStatus', async ({ payload, context }) => {
 // Work item view: decisions this work touches, and decisions logged from it.
 resolver.define('getWorkItemView', async ({ context }) => {
   const issueKey = context.extension.issue.key;
-  const work = await getWorkItem(issueKey);
-  const [matches, flags, fromHere] = await Promise.all([matchWork(work), getFlags(issueKey), listBySource(issueKey)]);
+  const [work, settings, flags, fromHere] = await Promise.all([
+    getWorkItem(issueKey),
+    getSettings(),
+    getFlags(issueKey),
+    listBySource(issueKey),
+  ]);
+  const { matches, judged } = await checkWorkItem(work, flags, settings);
+  if (Object.keys(judged).length) await saveVerdicts(issueKey, judged);
   return {
     work: { key: work.key, summary: work.summary, projectKey: work.projectKey },
     matches: matches.map((m) => ({
@@ -76,6 +83,8 @@ resolver.define('getWorkItemView', async ({ context }) => {
       strength: m.strength,
       matchedKeywords: m.matchedKeywords,
       matchedWords: m.matchedWords,
+      verdict: m.verdict,
+      reason: m.reason,
       response: flags[m.decision.ref]?.response,
     })),
     fromHere,

@@ -8,6 +8,11 @@ modules:
       filter:
         ignoreSelf: true
 
+  llm:
+    - key: precedent-llm
+      model:
+        - claude
+
   scheduledTrigger:
     - key: precedent-privacy-report
       function: privacy-report
@@ -76,6 +81,8 @@ modules:
         - Always cite the decision ref (for example D-4), its owner, and its source link when there is one.
         - When someone plans new work, run check-work-against-decisions on the work item key, or on
           the text of their plan, before giving advice.
+        - When a match has a verdict (conflicts, fits, unclear), give it and its reason. Without a
+          verdict, a keyword match only means the work touches the decision: read both and judge.
         - A decision with status replaced or expired no longer applies. Say which decision replaced it
           when known.
         - Before calling log-decision or change-decision-status, show the user exactly what you will
@@ -165,9 +172,9 @@ modules:
       function: check-work-fn
       actionVerb: GET
       description: >
-        Check a Jira work item, or the text of a plan, against the team's active
-        decisions. Returns the decisions it touches, how strong each match is,
-        and the words that matched.
+        Check a Jira work item, or a plan, against the team's active decisions.
+        Returns the decisions it touches, the matched words, and any stored
+        verdict (conflicts, fits, unclear) with its reason.
       inputs:
         issueKey:
           title: Work item key

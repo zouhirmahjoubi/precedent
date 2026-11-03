@@ -15,10 +15,14 @@ import ForgeReconciler, {
 import { invoke } from '@forge/bridge';
 
 const pageStyle = xcss({ padding: 'space.400' });
+// Keeps a toggle from being squeezed when its description wraps.
+const toggleStyle = xcss({ minWidth: '40px' });
 
 const Setting = ({ id, label, description, isChecked, onChange }) => (
   <Inline space="space.200" alignBlock="start">
-    <Toggle id={id} isChecked={isChecked} onChange={onChange} />
+    <Box xcss={toggleStyle}>
+      <Toggle id={id} isChecked={isChecked} onChange={onChange} />
+    </Box>
     <Stack space="space.050">
       <Label labelFor={id}>{label}</Label>
       <Text size="small" color="color.text.subtle">
@@ -87,6 +91,13 @@ const App = () => {
           description="Comment when the match is weaker. Off by default to keep work items quiet."
           isChecked={settings.commentOnPossible}
           onChange={toggle('commentOnPossible')}
+        />
+        <Setting
+          id="useAi"
+          label="Check matches with AI"
+          description="When keywords match, an Atlassian-hosted model judges whether the work goes against the decision, fits it, or is unrelated, and says why. Work item text stays inside Atlassian."
+          isChecked={settings.useAi}
+          onChange={toggle('useAi')}
         />
         <Inline>
           <LoadingButton appearance="primary" isLoading={saving} onClick={save}>

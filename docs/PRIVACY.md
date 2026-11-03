@@ -24,6 +24,8 @@ All data is kept in Atlassian's Forge hosted storage for your site. Precedent ru
 
 The Precedent Rovo agent and its tools for MCP clients (such as Claude or Cursor) run on behalf of the signed-in user and can only see what that user can already see in Jira and Confluence. Rovo is provided by Atlassian under Atlassian's own terms.
 
+If a site admin turns on **Check matches with AI** in Precedent settings, Precedent sends the summary and description of a work item, together with the decisions it matched, to a Claude model hosted by Atlassian through Forge LLMs. This happens inside Atlassian's platform; the text is not sent to the developer or to any other service. Precedent stores only the verdict (conflicts, fits, unclear or unrelated) and a one-sentence reason on the work item's flags. The setting is off by default.
+
 ## Account closure and deletion
 
 Precedent reports the account IDs it stores to Atlassian's personal data reporting service each week. When Atlassian reports that an account was closed, Precedent removes that account ID from its records. Decision owners can expire decisions, and site admins can uninstall the app, after which Atlassian deletes the app's storage under its Forge data retention rules.

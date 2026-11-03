@@ -7,12 +7,15 @@ Precedent remembers what your team decided and why, and flags new Jira work that
 | Part | Forge module | What it does |
 |---|---|---|
 | Guard | `trigger` on work item created and updated | Checks the work against active decisions. On a likely conflict it comments and mentions the owner. |
+| AI verdict | `llm` (Forge LLMs, Claude) | Optional. When keywords match, judges whether the work goes against the decision, fits it, or is unrelated, and gives a one-line reason. Off by default; turn it on in Precedent settings. |
 | Work item panel | `jira:issueContext` | Shows the decisions this work touches, with Follow it, Ask to reopen, Not related. Log a decision from the work item. |
 | Decision log | `jira:globalPage` | All decisions with search, status tabs, review dates, and how often each was flagged and followed. |
-| Settings | `jira:adminPage` | Comment options and a button that adds sample decisions. |
+| Settings | `jira:adminPage` | Comment options, the AI verdict switch, and a button that adds sample decisions. |
 | Confluence capture | `confluence:contentAction`, `confluence:contentBylineItem` | Log a decision from a page; see the decisions logged from it. |
 | Precedent agent | `rovo:agent`, 7 `action`s, 2 `rovo:skill`s | Answers "what did we decide about X", checks plans, captures decisions from threads, runs reviews. |
 | MCP tools | `rovo:mcp` | The same 7 actions for Claude, Cursor and other MCP clients. |
+
+The Guard matches keywords first, so most edits cost nothing. Only matched decisions go to the model, and each verdict is stored on the work item until its text or the decision changes. Forge LLMs run inside Atlassian, so the app keeps its Runs on Atlassian eligibility.
 
 Decisions live in the Forge custom entity store (`decision`, keyed by ref like `D-4`). A weekly scheduled trigger reports stored account IDs to Atlassian and removes closed accounts. See the [privacy policy](docs/PRIVACY.md) and [terms of use](docs/TERMS.md).
 
@@ -51,6 +54,6 @@ claude mcp add --transport http precedent https://mcp.atlassian.com/forge/2ef747
 
 1. Jira settings > Apps > Precedent settings > **Add sample decisions**.
 2. Create a work item called "Black Friday: free shipping on everything".
-3. Precedent comments on it within a few seconds. Open the Precedent panel on the work item to follow the decision or ask to reopen it.
+3. Precedent comments on it within a few seconds. With the AI verdict on, try "Black Friday: free shipping on orders over $50" too: it fits the rule, so Precedent stays quiet. Open the Precedent panel on the work item to follow the decision or ask to reopen it.
 4. Open Apps > Decisions to see the log.
 5. In Rovo chat, pick the Precedent agent and ask "What did we decide about free shipping?"
